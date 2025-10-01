@@ -15,13 +15,6 @@ namespace Elevator.Simulation.Api.Controllers
             _elevatorService = elevatorService;
         }
 
-        [HttpPost("reset")]
-        public IActionResult ResetElevators()
-        {
-            _elevatorService.ResetElevators();
-            return Ok(_elevatorService.GetState());
-        }
-
         [HttpGet("state")]
         public IActionResult GetState()
         {
