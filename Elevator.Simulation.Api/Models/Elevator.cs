@@ -5,7 +5,7 @@ namespace Elevator.Simulation.Api.Models
     public class ElevatorConfiguration
     {
         public int NumberOfFloors { get; set; } = 10;
-        public int NumberOfElevators { get; set; } = 2;
+        public int NumberOfElevators { get; set; } = 4;
         public int TravelTimePerFloor { get; set; } = 10;
         public int LoadingTime { get; set; } = 10;
         public bool RandomElevatorStart { get; set; } = false;

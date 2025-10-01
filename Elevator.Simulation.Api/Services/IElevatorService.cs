@@ -6,7 +6,6 @@ namespace Elevator.Simulation.Api.Services
     public interface IElevatorService
     {
         SimulationState GetState();
-        void ResetElevators();
         void UpdateConfiguration(ElevatorConfiguration config);
         void CallElevator(int fromFloor, int toFloor);
         void GenerateRandomCalls(int numberOfCalls);
@@ -28,7 +27,7 @@ namespace Elevator.Simulation.Api.Services
                 Configuration = new ElevatorConfiguration(),
                 Elevators = new List<ElevatorInfo>()
             };
-            InitializeElevators();
+            //InitializeElevators();
         }
 
         private void InitializeElevators()
@@ -55,12 +54,6 @@ namespace Elevator.Simulation.Api.Services
         }
 
         public SimulationState GetState() => _state;
-
-        public void ResetElevators()
-        {
-            InitializeElevators();
-            _state.Calls.Clear();
-        }
 
         public void UpdateConfiguration(ElevatorConfiguration config)
         {
