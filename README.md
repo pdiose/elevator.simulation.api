@@ -23,9 +23,15 @@ A backend API for simulating elevator operations using C# and .NET 8.
   <li>Click Run (or press F5) to start the API.</li>
 </ol>
 
-## Screenshot
+### Screenshot
 
-<img width="836" height="327" alt="image" src="https://github.com/user-attachments/assets/23f28fb3-1b2c-4e2c-b954-f1fb1a5ccc79" />
+<img width="457" height="333" alt="image" src="https://github.com/user-attachments/assets/03e2cdec-890f-4daa-ad6c-19324c9d0ba6" />
+
+## Testing (xUnit)
+<ol>
+  <li>A separate <code>Elevator.Simulation.Tests</code> project is included.</li>
+  <li>It uses <a href="https://xunit.net/">xUnit</a> and <code>Microsoft.Extensions.Logging.Abstractions</code> for testing.</li>
+</ol>
 
 ## Notes
 
