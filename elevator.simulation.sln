@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elevator.Simulation.Api", "Elevator.Simulation.Api\Elevator.Simulation.Api.csproj", "{FB2AA4FD-973E-46DD-A420-672FCE271AD8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elevator.Simulation.Tests", "Elevator.Simulation.Tests\Elevator.Simulation.Tests.csproj", "{F8479A52-DE4D-49A6-92CB-859F4DA89B24}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{FB2AA4FD-973E-46DD-A420-672FCE271AD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FB2AA4FD-973E-46DD-A420-672FCE271AD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB2AA4FD-973E-46DD-A420-672FCE271AD8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8479A52-DE4D-49A6-92CB-859F4DA89B24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8479A52-DE4D-49A6-92CB-859F4DA89B24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8479A52-DE4D-49A6-92CB-859F4DA89B24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8479A52-DE4D-49A6-92CB-859F4DA89B24}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
