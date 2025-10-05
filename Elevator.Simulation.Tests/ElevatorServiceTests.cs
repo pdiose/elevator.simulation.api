@@ -74,7 +74,6 @@ namespace Elevator.Simulation.Tests
                 Assert.InRange(e.CurrentFloor, 1, config.NumberOfFloors));
         }
 
-
         [Fact]
         public void CallElevator_ShouldCreateCall()
         {
