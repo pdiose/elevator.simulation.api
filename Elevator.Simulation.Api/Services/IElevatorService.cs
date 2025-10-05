@@ -27,7 +27,6 @@ namespace Elevator.Simulation.Api.Services
                 Configuration = new ElevatorConfiguration(),
                 Elevators = new List<ElevatorInfo>()
             };
-            //InitializeElevators();
         }
 
         private void InitializeElevators()
@@ -60,6 +59,7 @@ namespace Elevator.Simulation.Api.Services
             _state.Configuration = config;
             InitializeElevators();
             _state.Calls.Clear();
+            _nextCallId = 1;
         }
 
         public void CallElevator(int fromFloor, int toFloor)
@@ -150,7 +150,7 @@ namespace Elevator.Simulation.Api.Services
         {
             foreach (var elevator in _state.Elevators)
             {
-                ProcessElevatorMovement(elevator);
+               ProcessElevatorMovement(elevator);
             }
 
             UpdateCallStatuses();
@@ -158,74 +158,137 @@ namespace Elevator.Simulation.Api.Services
 
         private void ProcessElevatorMovement(ElevatorInfo elevator)
         {
+
             if (elevator.TimeRemaining.HasValue && elevator.TimeRemaining > 0)
             {
                 elevator.TimeRemaining--;
                 return;
             }
 
-            if (!elevator.DestinationFloors.Any())
+            var activeCalls = _state.Calls
+                .Where(c => c.AssignedElevator == elevator.Id && c.Status != ElevatorCallStatus.Completed)
+                .ToList();
+
+            bool hasActiveCalls = activeCalls.Any();
+
+            if (!elevator.DestinationFloors.Any() && !hasActiveCalls)
             {
                 elevator.Status = ElevatorStatus.Idle;
-                elevator.CurrentAction = "Idle";
+                elevator.CurrentAction = $"Idle at floor {elevator.CurrentFloor}";
                 return;
             }
 
-            var nextFloor = elevator.DestinationFloors[0];
+            if (!elevator.DestinationFloors.Any() && hasActiveCalls)
+            {
+                elevator.DestinationFloors = activeCalls
+                    .SelectMany(c => new[] { c.FromFloor, c.ToFloor })
+                    .Distinct()
+                    .ToList();
+            }
+
+            var nextFloor = elevator.DestinationFloors.First();
 
             if (elevator.CurrentFloor == nextFloor)
             {
-                // At destination - handle loading/unloading
-                elevator.DestinationFloors.RemoveAt(0);
+                var callsAtThisFloor = _state.Calls
+                    .Where(c => c.AssignedElevator == elevator.Id &&
+                                (c.FromFloor == elevator.CurrentFloor || c.ToFloor == elevator.CurrentFloor) &&
+                                c.Status != ElevatorCallStatus.Completed)
+                    .ToList();
 
-                var callsAtThisFloor = _state.Calls.Where(c =>
-                    c.AssignedElevator == elevator.Id &&
-                    (c.FromFloor == elevator.CurrentFloor || c.ToFloor == elevator.CurrentFloor) &&
-                    c.Status != ElevatorCallStatus.Completed).ToList();
+                bool hasUnloading = callsAtThisFloor.Any(c =>
+                    c.ToFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.InProgress);
 
-                if (callsAtThisFloor.Any(c => c.FromFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.Assigned))
+                bool hasLoading = callsAtThisFloor.Any(c =>
+                    c.FromFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.Assigned);
+
+                int fullTime = _state.Configuration.LoadingTime;
+                int halfTime = fullTime / 2;
+
+                if (hasUnloading && hasLoading)
                 {
-                    // Loading passengers
-                    elevator.Status = ElevatorStatus.Loading;
-                    elevator.CurrentAction = "Loading passengers";
-                    elevator.TimeRemaining = _state.Configuration.LoadingTime;
-
-                    foreach (var call in callsAtThisFloor.Where(c => c.FromFloor == elevator.CurrentFloor))
+                    if (elevator.CurrentAction != "Unloading passengers (1/2)" &&
+                        elevator.CurrentAction != "Loading passengers (2/2)")
                     {
-                        call.Status = ElevatorCallStatus.InProgress;
+                        foreach (var call in callsAtThisFloor.Where(c =>
+                            c.ToFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.InProgress))
+                            call.Status = ElevatorCallStatus.Completed;
+
+                        elevator.Status = ElevatorStatus.Unloading;
+                        elevator.CurrentAction = "Unloading passengers (1/2)";
+                        elevator.TimeRemaining = halfTime;
+                        return;
+                    }
+
+                    if (elevator.CurrentAction == "Unloading passengers (1/2)")
+                    {
+                        foreach (var call in callsAtThisFloor.Where(c =>
+                            c.FromFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.Assigned))
+                            call.Status = ElevatorCallStatus.InProgress;
+
+                        elevator.Status = ElevatorStatus.Loading;
+                        elevator.CurrentAction = "Loading passengers (2/2)";
+                        elevator.TimeRemaining = halfTime;
+                        return;
                     }
                 }
-                else if (callsAtThisFloor.Any(c => c.ToFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.InProgress))
+
+                if (hasLoading)
                 {
-                    // Unloading passengers
+                    if (elevator.CurrentAction == "Unloading passengers (1/2)")
+                    {
+                        foreach (var call in callsAtThisFloor.Where(c =>
+                            c.FromFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.Assigned))
+                            call.Status = ElevatorCallStatus.InProgress;
+
+                        elevator.Status = ElevatorStatus.Loading;
+                        elevator.CurrentAction = "Loading passengers (2/2)";
+                        elevator.TimeRemaining = halfTime;
+                        return;
+                    }
+                    else
+                    {
+                        foreach (var call in callsAtThisFloor.Where(c =>
+                            c.FromFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.Assigned))
+                            call.Status = ElevatorCallStatus.InProgress;
+
+                        elevator.Status = ElevatorStatus.Loading;
+                        elevator.CurrentAction = "Loading passengers";
+                        elevator.TimeRemaining = fullTime;
+                        return;
+                    }
+                        
+                }
+
+                if (hasUnloading)
+                {
+                    foreach (var call in callsAtThisFloor.Where(c =>
+                            c.ToFloor == elevator.CurrentFloor && c.Status == ElevatorCallStatus.InProgress))
+                        call.Status = ElevatorCallStatus.Completed;
+
                     elevator.Status = ElevatorStatus.Unloading;
                     elevator.CurrentAction = "Unloading passengers";
-                    elevator.TimeRemaining = _state.Configuration.LoadingTime;
-
-                    var completedCalls = callsAtThisFloor.Where(c => c.ToFloor == elevator.CurrentFloor).ToList();
-                    foreach (var call in completedCalls)
-                    {
-                        call.Status = ElevatorCallStatus.Completed;
-                    }
+                    elevator.TimeRemaining = fullTime;
+                    return;
                 }
+
+                elevator.DestinationFloors.RemoveAt(0);
+                elevator.CurrentAction = $"Arrived at floor {nextFloor}";
+                return;
             }
             else
             {
-                // Move towards next floor
                 elevator.Status = ElevatorStatus.Moving;
                 elevator.CurrentAction = $"Moving to floor {nextFloor}";
                 elevator.TimeRemaining = _state.Configuration.TravelTimePerFloor;
-
-                if (elevator.CurrentFloor < nextFloor)
-                    elevator.CurrentFloor++;
-                else
-                    elevator.CurrentFloor--;
+                elevator.CurrentFloor += elevator.CurrentFloor < nextFloor ? 1 : -1;
+                return;
             }
         }
 
+
         private void UpdateCallStatuses()
         {
-            // Reassign unassigned calls
             var unassignedCalls = _state.Calls.Where(c => c.Status == ElevatorCallStatus.Waiting).ToList();
             foreach (var call in unassignedCalls)
             {
