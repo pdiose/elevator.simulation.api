@@ -273,7 +273,6 @@ namespace Elevator.Simulation.Api.Services
                 }
 
                 elevator.DestinationFloors.RemoveAt(0);
-                elevator.CurrentAction = $"Arrived at floor {nextFloor}";
                 return;
             }
             else
