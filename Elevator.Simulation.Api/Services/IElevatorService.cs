@@ -1,4 +1,5 @@
-﻿using Elevator.Simulation.Api.Enums;
+﻿using Elevator.Simulation.Api.Data;
+using Elevator.Simulation.Api.Enums;
 using Elevator.Simulation.Api.Models;
 
 namespace Elevator.Simulation.Api.Services
@@ -15,12 +16,14 @@ namespace Elevator.Simulation.Api.Services
     public class ElevatorService : IElevatorService
     {
         private readonly SimulationState _state;
+        private readonly ElevatorDbContext _dbContext;
         private readonly ILogger<ElevatorService> _logger;
         private int _nextCallId = 1;
         private readonly Random _random = new();
 
-        public ElevatorService(ILogger<ElevatorService> logger)
+        public ElevatorService(ElevatorDbContext dbContext, ILogger<ElevatorService> logger)
         {
+            _dbContext = dbContext;
             _logger = logger;
             _state = new SimulationState
             {
@@ -75,7 +78,8 @@ namespace Elevator.Simulation.Api.Services
                 Status = ElevatorCallStatus.Waiting
             };
 
-            _state.Calls.Add(call);
+            _dbContext.ElevatorCalls.Add(call);
+            _dbContext.SaveChanges();
             AssignElevatorToCall(call);
         }
 
@@ -96,34 +100,78 @@ namespace Elevator.Simulation.Api.Services
 
         private void AssignElevatorToCall(ElevatorCall call)
         {
-            var availableElevators = _state.Elevators
-                .Where(e => e.Status == ElevatorStatus.Idle ||
-                           (e.Status == ElevatorStatus.Moving &&
-                            IsOnTheWay(e, call.FromFloor, call.ToFloor > call.FromFloor)))
+            // Ensure `call` is tracked by the context
+            var trackedCall = _dbContext.ElevatorCalls
+                .FirstOrDefault(c => c.Id == call.Id);
+
+            if (trackedCall == null)
+            {
+                // Option: attach
+                _dbContext.ElevatorCalls.Attach(call);
+                trackedCall = call;
+            }
+
+            // 1. Fetch elevators from the database
+            var elevatorEntities = _dbContext.ElevatorInfos
+                .Where(e => e.Status == ElevatorStatus.Idle || e.Status == ElevatorStatus.Moving)
+                .ToList(); // bring into memory
+
+            // 2. Filter with IsOnTheWay
+            var availableElevators = elevatorEntities
+                .Where(e => IsOnTheWay(
+                    elevator: e,
+                    floor: call.FromFloor,
+                    goingUp: call.ToFloor > call.FromFloor))
                 .ToList();
 
             if (!availableElevators.Any()) return;
 
+            // 3. Pick the best elevator
             var bestElevator = availableElevators
                 .OrderBy(e => CalculateCost(e, call.FromFloor))
                 .First();
 
+            // 4. Update the elevator’s destination list
             bestElevator.DestinationFloors.Add(call.FromFloor);
             bestElevator.DestinationFloors.Add(call.ToFloor);
             bestElevator.DestinationFloors = bestElevator.DestinationFloors.Distinct().ToList();
 
-            call.Status = ElevatorCallStatus.Assigned;
-            call.AssignedElevator = bestElevator.Id;
+            // 5. Update call assignment
+            trackedCall.Status = ElevatorCallStatus.Assigned;
+            trackedCall.AssignedElevator = bestElevator.Id;
+
+            // 6. Save changes
+            _dbContext.SaveChanges();
         }
 
         private bool IsOnTheWay(ElevatorInfo elevator, int floor, bool goingUp)
         {
-            if (elevator.DestinationFloors.Count == 0) return false;
+            if (elevator.DestinationFloors == null || elevator.DestinationFloors.Count == 0)
+                return false;
 
-            var currentDirection = elevator.DestinationFloors[0] > elevator.CurrentFloor;
-            return currentDirection == goingUp &&
-                   ((goingUp && floor >= elevator.CurrentFloor) ||
-                    (!goingUp && floor <= elevator.CurrentFloor));
+            var possible = elevator.DestinationFloors
+                .Where(d => goingUp ? d >= elevator.CurrentFloor : d <= elevator.CurrentFloor)
+                .ToList();
+            if (!possible.Any())
+                return false;
+
+            int next = possible
+                .OrderBy(d => Math.Abs(d - elevator.CurrentFloor))
+                .First();
+
+            bool currentDirection = next > elevator.CurrentFloor;
+
+            if (currentDirection != goingUp)
+                return false;
+
+            if (goingUp)
+            {
+                return floor >= elevator.CurrentFloor && floor <= next;
+            }
+            else
+            {
+                return floor <= elevator.CurrentFloor && floor >= next;
+            }
         }
 
         private int CalculateCost(ElevatorInfo elevator, int callFloor)
