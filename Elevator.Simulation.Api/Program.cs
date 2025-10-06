@@ -1,4 +1,6 @@
 using Elevator.Simulation.Api.Services;
+using Elevator.Simulation.Api.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Register DbContext
+builder.Services.AddDbContext<ElevatorDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register ElevatorService
+builder.Services.AddScoped<IElevatorService, ElevatorService>();
+
 
 // Add Cors
 var allowedOriginsString = builder.Configuration["CorsSettings:AllowedOrigins"];
@@ -23,9 +32,6 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
-
-// Register services
-builder.Services.AddSingleton<IElevatorService, ElevatorService>();
 
 var app = builder.Build();
 
